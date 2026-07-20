@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#17120E">
+<title>中毒快篩｜發票食安快篩</title>
+<style>
+  /* ===== 設計 tokens：暗色主題 + CMoney 紅 ===== */
+  :root{
+    --bg:#17120E; --card:#221B15; --card2:#2B221A;
+    --line:rgba(255,255,255,.09);
+    --ink:#F3EDE6; --sub:#B8AEA3; --dim:#8A7F73;
+    --red:#E8453A; --red-deep:#D7000F; --red-bg:rgba(216,60,48,.14);
+    --green:#4CBB6C; --green-bg:rgba(60,170,100,.13);
+    --amber:#E8A13C;
+    --safe-top:env(safe-area-inset-top,0px); --safe-bot:env(safe-area-inset-bottom,0px);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  body{background:var(--bg);color:var(--ink);
+       font-family:"PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif;
+       font-size:15px;line-height:1.65;padding-bottom:calc(24px + var(--safe-bot))}
+  .wrap{max-width:520px;margin:0 auto;padding:0 16px}
+
+  /* ===== 小程序頂欄（宿主容器提供的沉浸式頂欄示意） ===== */
+  .navbar{position:sticky;top:0;z-index:50;background:rgba(23,18,14,.92);backdrop-filter:blur(8px);
+          padding:calc(10px + var(--safe-top)) 14px 10px;display:flex;align-items:center;gap:8px;
+          border-bottom:1px solid var(--line)}
+  .navbar .host{font-size:12px;color:var(--dim)}
+  .navbar .title{font-weight:700;font-size:15px}
+  .capsule{margin-left:auto;display:flex;border:1px solid var(--line);border-radius:999px;overflow:hidden}
+  .capsule button{background:transparent;border:none;color:var(--ink);font-size:15px;
+                  padding:5px 12px;cursor:pointer}
+  .capsule button+button{border-left:1px solid var(--line)}
+
+  /* ===== 進入場景提示（發票詳情頁反向入口） ===== */
+  .scene{display:none;margin:12px 0 0;padding:9px 12px;border-radius:10px;
+         background:var(--red-bg);border:1px solid rgba(216,60,48,.35);font-size:12.5px;color:var(--sub)}
+  .scene b{color:var(--ink)}
+
+  /* ===== Hero ===== */
+  .hero{padding:26px 0 8px;text-align:center}
+  .badge{display:inline-block;font-size:12px;letter-spacing:.12em;color:var(--amber);
+         border:1px solid rgba(232,161,60,.4);border-radius:999px;padding:3px 12px;margin-bottom:14px}
+  h1{font-size:34px;line-height:1.25;letter-spacing:.02em}
+  h1 .q{color:var(--red)}
+  .hero p{color:var(--sub);font-size:13.5px;margin-top:10px}
+  .hero p b{color:var(--ink)}
+  .stats{display:flex;gap:10px;margin:18px 0 4px}
+  .stat{flex:1;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 6px;text-align:center}
+  .stat .n{font-size:22px;font-weight:800;color:var(--red)}
+  .stat .l{font-size:11.5px;color:var(--dim);margin-top:2px}
+
+  /* ===== 輸入卡 ===== */
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px 16px;margin-top:16px}
+  .panel h2{font-size:16px;margin-bottom:4px}
+  .panel .hint{font-size:12.5px;color:var(--dim);margin-bottom:12px}
+  .inputrow{display:flex;gap:8px}
+  input#carrier{flex:1;background:var(--card2);border:1px solid var(--line);border-radius:10px;
+                color:var(--ink);font-size:17px;letter-spacing:.06em;padding:11px 12px;
+                font-family:"SF Mono",Consolas,monospace}
+  input#carrier:focus{outline:none;border-color:var(--red)}
+  .btn-fill{background:transparent;border:1px solid var(--line);border-radius:10px;color:var(--sub);
+            font-size:12.5px;padding:0 10px;cursor:pointer;white-space:nowrap}
+  .err{display:none;color:var(--red);font-size:12.5px;margin-top:8px}
+  .cta{width:100%;margin-top:14px;background:var(--red-deep);border:none;border-radius:12px;
+       color:#fff;font-size:17px;font-weight:700;padding:14px;cursor:pointer}
+  .cta:active{transform:scale(.985)}
+  .privacy{font-size:11.5px;color:var(--dim);margin-top:10px;text-align:center}
+
+  /* ===== 比對中 / 結果 ===== */
+  .loading{display:none;text-align:center;padding:26px 0 10px}
+  .spin{width:34px;height:34px;border:3px solid var(--line);border-top-color:var(--red);
+        border-radius:50%;margin:0 auto 12px;animation:sp 0.9s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .loading p{font-size:13px;color:var(--sub)}
+  .result{display:none;margin-top:16px}
+  .rcard{border-radius:16px;padding:18px 16px;border:1px solid}
+  .rcard.hit{background:var(--red-bg);border-color:rgba(216,60,48,.45)}
+  .rcard.clean{background:var(--green-bg);border-color:rgba(60,170,100,.4)}
+  .rcard .rt{font-size:19px;font-weight:800;display:flex;align-items:center;gap:8px}
+  .rcard.hit .rt{color:var(--red)} .rcard.clean .rt{color:var(--green)}
+  .rcard .rs{font-size:13px;color:var(--sub);margin-top:6px}
+  .item{background:rgba(0,0,0,.22);border:1px solid var(--line);border-radius:12px;
+        padding:12px;margin-top:10px}
+  .item .nm{font-weight:700;font-size:14.5px}
+  .item .meta{font-size:12px;color:var(--dim);margin-top:3px}
+  .item .act{font-size:12.5px;color:var(--amber);margin-top:6px}
+  .demo-tag{display:inline-block;font-size:10.5px;color:var(--dim);border:1px solid var(--line);
+            border-radius:4px;padding:0 5px;margin-left:6px;vertical-align:2px}
+  .src{font-size:11.5px;color:var(--dim);margin-top:12px}
+  .src a{color:var(--sub)}
+
+  /* ===== 分享 ===== */
+  .share{margin-top:16px;background:linear-gradient(0deg,var(--card),var(--card));
+         border:1px dashed rgba(232,161,60,.45);border-radius:16px;padding:18px 16px;text-align:center}
+  .share h3{font-size:16.5px;line-height:1.5}
+  .share h3 span{color:var(--amber)}
+  .share p{font-size:12.5px;color:var(--dim);margin:8px 0 12px}
+  .btn-share{background:var(--amber);color:#2A1C05;border:none;border-radius:12px;
+             font-size:15px;font-weight:700;padding:12px 26px;cursor:pointer}
+
+  /* ===== 衛教手風琴 ===== */
+  .acc{margin-top:16px}
+  .acc details{background:var(--card);border:1px solid var(--line);border-radius:12px;
+               padding:0 14px;margin-bottom:8px}
+  .acc summary{list-style:none;cursor:pointer;font-size:14.5px;font-weight:600;padding:13px 0;
+               display:flex;justify-content:space-between}
+  .acc summary::after{content:"＋";color:var(--dim)}
+  .acc details[open] summary::after{content:"－"}
+  .acc .body{padding:0 0 13px;font-size:13px;color:var(--sub)}
+  .acc .body li{margin:4px 0 4px 18px}
+  .tel{display:flex;justify-content:space-between;align-items:center;background:var(--card2);
+       border-radius:10px;padding:9px 12px;margin-top:8px}
+  .tel .co{font-size:13px}
+  .tel a{color:var(--amber);text-decoration:none;font-weight:700;font-size:14px}
+
+  footer{margin-top:26px;text-align:center;font-size:11px;color:var(--dim);line-height:1.8}
+  .toast{position:fixed;left:50%;bottom:calc(60px + var(--safe-bot));transform:translateX(-50%) translateY(20px);
+         background:rgba(0,0,0,.85);color:#fff;font-size:13px;border-radius:999px;
+         padding:9px 18px;opacity:0;transition:.25s;pointer-events:none;z-index:99;white-space:nowrap}
+  .toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+
+<!-- 頂欄：正式版由原生容器提供，這裡以 H5 模擬同款體驗 -->
+<div class="navbar">
+  <span class="host">發票載具 ▸</span><span class="title">中毒快篩</span>
+  <div class="capsule">
+    <button onclick="onMenu()" aria-label="選單">•••</button>
+    <button onclick="onClose()" aria-label="關閉">⊗</button>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <div class="scene" id="sceneBar">🧾 由發票 <b id="sceneInv"></b> 進入（賣方：<b id="sceneSeller"></b>）——已為你自動帶入載具，直接按下方按鈕查詢。</div>
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="badge">食安自救・手機發票載具查詢</div>
+    <h1>你中毒了嗎<span class="q">？</span></h1>
+    <p>這波致癌問題油流入市面，逾 <b>401 項</b>加工食品預防性下架。<br>用你的發票 30 秒查有沒有買到中鏢的東西。</p>
+    <div class="stats">
+      <div class="stat"><div class="n">401</div><div class="l">預防性下架品項</div></div>
+      <div class="stat"><div class="n">52</div><div class="l">涉及業者</div></div>
+      <div class="stat"><div class="n">339</div><div class="l">比對即食零售品項</div></div>
+    </div>
+  </div>
+
+  <!-- 輸入 -->
+  <div class="panel">
+    <h2>查我中毒沒</h2>
+    <div class="hint">輸入手機條碼載具（「/」開頭共 8 碼，例：/A1B+2C3）</div>
+    <div class="inputrow">
+      <input id="carrier" placeholder="/A1B+2C3" maxlength="8" autocomplete="off" autocapitalize="characters">
+      <button class="btn-fill" onclick="fillFromApp()">從發票載具帶入</button>
+    </div>
+    <div class="err" id="err">條碼格式不對：應為「/」開頭、共 8 碼（可含 0-9、A-Z、+、-、.）。</div>
+    <button class="cta" onclick="check()">查我中毒沒</button>
+    <div class="privacy">🔒 發票只在伺服器比對後回結果，不儲存明細</div>
+  </div>
+
+  <!-- 比對中 -->
+  <div class="loading" id="loading">
+    <div class="spin"></div>
+    <p>正在比對食藥署官方下架清單⋯<br>明細不落地、不儲存</p>
+  </div>
+
+  <!-- 結果 -->
+  <div class="result" id="result"></div>
+
+  <!-- 分享 -->
+  <div class="share">
+    <h3>多一個人查，<span>就少一個人吃到毒油</span></h3>
+    <p>把「中毒快篩」傳到家庭群組，讓爸媽、長輩也花 30 秒查自己的發票。</p>
+    <button class="btn-share" onclick="shareIt()">傳出去，提醒家人朋友</button>
+  </div>
+
+  <!-- 衛教 -->
+  <div class="acc">
+    <details>
+      <summary>苯駢芘是什麼？要多緊張？</summary>
+      <div class="body"><ul>
+        <li>苯駢芘（Benzo[a]pyrene）為一級致癌物，此次問題大豆沙拉油驗出超標約 4 倍。</li>
+        <li>污染批約自 2026 年 4 月流入市面，波及多家通路與食品業者。</li>
+        <li>它屬於長期累積的暴露風險、不是急性中毒——偶爾吃到不必恐慌，把名單上的產品停用即可。</li>
+        <li>一切以主管機關與商家最新公告為準。</li>
+      </ul></div>
+    </details>
+    <details>
+      <summary>買到了，可以這樣處理</summary>
+      <div class="body">
+        依食藥署公告可向業者辦理退換貨或退費（實際方式依各公司／通路規定）：
+        <div class="tel"><span class="co">泰山企業 消費者專線</span><a href="tel:0800079080">0800-079-080</a></div>
+        <div class="tel"><span class="co">福壽實業 消費者專線</span><a href="tel:0800236699">0800-236-699</a></div>
+        <div class="tel"><span class="co">福懋油脂 消費者專線</span><a href="tel:0800888255">0800-888-255</a></div>
+        <div class="tel"><span class="co">食品安全專線</span><a href="tel:1919">1919</a></div>
+        <ul style="margin-top:8px"><li>在通路／賣場買到的，請洽原購買商家客服或官網。</li></ul>
+      </div>
+    </details>
+    <details>
+      <summary>名單多久更新一次？</summary>
+      <div class="body"><ul>
+        <li>依食藥署官方「預防性下架產品清單」比對，名單以官方每日 14:00 更新為準。</li>
+        <li>本工具僅比對其中的即食零售品項；餐飲通路用油請留意店家公告。</li>
+        <li><a href="https://www.fda.gov.tw/tc/site.aspx?sid=13702" style="color:var(--amber)">→ 查看食藥署官方清單</a></li>
+      </ul></div>
+    </details>
+  </div>
+
+  <footer>
+    示範版聲明：本頁為「發票載具小程序」教學示範，比對結果為<b>模擬資料</b>，非即時官方比對。<br>
+    正式版由 CMoney AI Lab 食安快篩 API 提供伺服器端比對。<br>
+    資料來源：衛福部食藥署預防性下架產品清單
+  </footer>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* =====================================================
+   fapiao-jssdk（內嵌精簡版）
+   在發票載具 App 內 → 走 JSBridge；在瀏覽器 → 自動降級
+   ===================================================== */
+(function(){
+  var cbs={}, seed=0;
+  function invoke(api, params, cb){
+    var id='cb_'+(++seed); if(cb) cbs[id]=cb;
+    var msg={api:api, params:params||{}, callbackId:id};
+    if(window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.fapiaoBridge){
+      window.webkit.messageHandlers.fapiaoBridge.postMessage(msg);           // iOS
+    }else if(window.fapiaoNative){
+      window.fapiaoNative.invoke(api, JSON.stringify(params||{}), id);       // Android
+    }else{
+      if(cb) cb({code:-1, msg:'not in app'});                                 // 瀏覽器降級
+    }
+  }
+  window.fapiao={
+    inApp: !!((window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.fapiaoBridge)||window.fapiaoNative),
+    invoke: invoke,
+    _callback: function(id, result){
+      var cb=cbs[id]; if(!cb) return;
+      if(typeof result==='string'){ try{ result=JSON.parse(result); }catch(e){} }
+      cb(result); delete cbs[id];
+    },
+    getCarrierBarcode: function(cb){ invoke('getCarrierBarcode',{},cb); },
+    share: function(o,cb){ invoke('share',o,cb); },
+    closeWindow: function(){ invoke('closeWindow',{}); },
+    toast: function(t){ invoke('toast',{text:t}); }
+  };
+})();
+
+/* ===== 工具 ===== */
+function $(id){ return document.getElementById(id); }
+function toast(t){
+  var el=$('toast'); el.textContent=t; el.classList.add('on');
+  clearTimeout(el._t); el._t=setTimeout(function(){ el.classList.remove('on'); },2200);
+}
+
+/* ===== 場景參數（發票詳情頁反向入口 / 掃碼進入） =====
+   例：toxin-check.html?scene=invoice&inv=AB-12345678&seller=泰山企業 */
+(function(){
+  var q=new URLSearchParams(location.search);
+  if(q.get('scene')==='invoice'){
+    $('sceneBar').style.display='block';
+    $('sceneInv').textContent=q.get('inv')||'—';
+    $('sceneSeller').textContent=q.get('seller')||'—';
+  }
+})();
+
+/* ===== 自動帶入載具條碼（App 內的殺手級體驗） ===== */
+function fillFromApp(){
+  fapiao.getCarrierBarcode(function(res){
+    if(res && res.code===0 && res.data && res.data.barcode){
+      $('carrier').value=res.data.barcode;
+      toast('已帶入你的載具條碼');
+    }else{
+      $('carrier').value='/DEMO+88';          // 瀏覽器示範：填入示範條碼
+      toast('瀏覽器示範模式：已填入示範條碼');
+    }
+  });
+}
+if(fapiao.inApp){ fillFromApp(); }             // App 內打開直接自動帶入
+
+/* ===== 驗證：/ 開頭共 8 碼，第 2–8 碼為 0-9 A-Z + - . ===== */
+function validCarrier(v){ return /^\/[0-9A-Z+\-.]{7}$/.test(v); }
+
+/* ===== 示範比對資料（僅教學用；正式版改為呼叫 AI Lab API） ===== */
+var DEMO_ITEMS=[
+  {nm:'大豆沙拉油 1.5L', co:'油品業者 A', ch:'量販通路', act:'停止食用，撥打業者專線辦理退換貨'},
+  {nm:'香蒜麵包抹醬 250g', co:'食品業者 B', ch:'連鎖超市', act:'停止食用，向原購買門市辦理退貨'},
+  {nm:'即食義大利麵（蒜香口味）', co:'鮮食業者 C', ch:'連鎖超商', act:'已下架；如有存貨請停用'},
+  {nm:'酥炸洋蔥圈 300g', co:'冷凍食品業者 D', ch:'量販通路', act:'停止食用，憑發票退費'},
+  {nm:'調和沙拉油 3L', co:'油品業者 E', ch:'批發通路', act:'停止使用，撥打業者專線'}
+];
+function hashStr(s){ var h=0; for(var i=0;i<s.length;i++){ h=(h*31 + s.charCodeAt(i))>>>0; } return h; }
+
+/* ===== 查詢主流程 ===== */
+function check(){
+  var v=$('carrier').value.trim().toUpperCase();
+  $('carrier').value=v;
+  if(!validCarrier(v)){ $('err').style.display='block'; return; }
+  $('err').style.display='none';
+  $('result').style.display='none';
+  $('loading').style.display='block';
+
+  setTimeout(function(){                      // 模擬伺服器比對延遲
+    $('loading').style.display='none';
+    var h=hashStr(v), hits=[];
+    if(h%3===0){ hits=[DEMO_ITEMS[h%5], DEMO_ITEMS[(h+2)%5]]; }
+    else if(h%3===1){ hits=[DEMO_ITEMS[h%5]]; }
+    render(hits);
+  }, 1400);
+}
+
+function render(hits){
+  var box=$('result'), html='';
+  if(hits.length){
+    html+='<div class="rcard hit"><div class="rt">⚠️ 中鏢了：比對到 '+hits.length+' 項<span class="demo-tag">示範資料</span></div>'
+        + '<div class="rs">你近 90 天的發票中，有以下品項出現在預防性下架清單：</div>';
+    hits.forEach(function(it){
+      html+='<div class="item"><div class="nm">'+it.nm+'<span class="demo-tag">示範品名</span></div>'
+          + '<div class="meta">'+it.co+'・'+it.ch+'</div>'
+          + '<div class="act">→ '+it.act+'</div></div>';
+    });
+    html+='<div class="rs" style="margin-top:10px">別慌：苯駢芘屬長期累積風險，停用名單產品即可。退貨專線見下方「買到了，可以這樣處理」。</div></div>';
+  }else{
+    html+='<div class="rcard clean"><div class="rt">✅ 這次沒中鏢<span class="demo-tag">示範資料</span></div>'
+        + '<div class="rs">你近 90 天的發票沒有比對到下架品項。名單每日更新，建議下次採買前再查一次，也幫家人查查。</div></div>';
+  }
+  html+='<div class="src">品項依食藥署官方預防性下架產品清單比對（每日 14:00 更新）・僅比對即食零售品項</div>';
+  box.innerHTML=html; box.style.display='block';
+  box.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+/* ===== 分享（App 內走原生；瀏覽器降級複製連結） ===== */
+function shareIt(){
+  var text='這波問題油下架了 401 項食品，用發票 30 秒查你有沒有買到 →';
+  var url=location.origin+location.pathname;
+  fapiao.share({title:'中毒快篩｜你中毒了嗎？', desc:text, url:url}, function(res){
+    if(res && res.code===0){ toast('已開啟分享'); return; }
+    if(navigator.share){ navigator.share({title:'中毒快篩', text:text, url:url}).catch(function(){}); return; }
+    try{
+      var ta=document.createElement('textarea'); ta.value=text+' '+url;
+      document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
+      toast('連結已複製，貼到 LINE 群組吧');
+    }catch(e){ toast('請手動複製網址分享'); }
+  });
+}
+
+/* ===== 膠囊 ===== */
+function onMenu(){ toast('選單：分享・收藏・重新載入（示意）'); }
+function onClose(){
+  if(fapiao.inApp){ fapiao.closeWindow(); }
+  else if(history.length>1){ history.back(); }
+  else{ toast('已在最外層（瀏覽器示範）'); }
+}
+</script>
+</body>
+</html>
